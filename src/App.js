@@ -1,54 +1,93 @@
 import React, { useState, useEffect } from 'react';
-import PokemonList from './PokemonList'
-import axios from 'axios'
-import Pagination from './Pagination';
-import Loading from './Loading/Loading'
-import './App.css'
+import ProductItem from './PokemonItem';
+import './App.css';
+
+import Loading from './Loading/Loading';
+function getPokemon({ url }) {
+  return new Promise((resolve, reject) => {
+      fetch(url).then(res => res.json())
+          .then(data => {
+              resolve(data)
+          })
+  });
+}
+
+ async function getAllPokemon(url) {
+  return new Promise((resolve, reject) => {
+      fetch(url).then(res => res.json())
+          .then(data => {
+              resolve(data)
+          })
+  });
+}
 function App() {
-  const [pokemon, setPokemon] = useState([])
-  const [currentPageUrl, setCurrentPageUrl] = useState("https://pokeapi.co/api/v2/pokemon")
-  const [nextPageUrl, setNextPageUrl] = useState()
-  const [prevPageUrl, setPrevPageUrl] = useState()
-  const [loading, setLoading] = useState(true)
+  const [pokemonData, setPokemonData] = useState([])
+  const [nextUrl, setNextUrl] = useState();
+  const [prevUrl, setPrevUrl] = useState();
+  const [loading, setLoading] = useState(true);
+  const initialURL = 'https://pokeapi.co/api/v2/pokemon'
 
   useEffect(() => {
-    setLoading(true)
-    let cancel
-    axios.get(currentPageUrl, {
-      cancelToken: new axios.CancelToken(c => cancel = c)
-    }).then(res => {
-      setLoading(false)
-      setNextPageUrl(res.data.next)
-      setPrevPageUrl(res.data.previous)
-      setPokemon(res.data.results.map(p => p.name))
-     
-    })
+    async function fetchData() {
+      let response = await getAllPokemon(initialURL)
+      setNextUrl(response.next);
+      setPrevUrl(response.previous);
+      await loadPokemon(response.results);
+      setLoading(false);
+    }
+    fetchData();
+  }, [])
 
-    return () => cancel()
-  }, [currentPageUrl])
-
-  function gotoNextPage() {
-    setCurrentPageUrl(nextPageUrl)
+  const getnexturl = async () => {
+    setLoading(true);
+    let data = await getAllPokemon(nextUrl);
+    await loadPokemon(data.results);
+    setNextUrl(data.next);
+    setPrevUrl(data.previous);
+    setLoading(false);
   }
 
-  function gotoPrevPage() {
-    setCurrentPageUrl(prevPageUrl)
+  const getprevurl = async () => {
+    if (!prevUrl) return;
+    setLoading(true);
+    let data = await getAllPokemon(prevUrl);
+    await loadPokemon(data.results);
+    setNextUrl(data.next);
+    setPrevUrl(data.previous);
+    setLoading(false);
   }
 
-  if (loading) return <div><Loading /></div>
-  
+  const loadPokemon = async (data) => {
+    let _pokemonData = await Promise.all(data.map(async pokemon => {
+      let pokemonRecord = await getPokemon(pokemon)
+      return pokemonRecord
+    }))
+    setPokemonData(_pokemonData);
+  }
+
   return (
     <>
-      <h2>Hello</h2>
-      <Pagination
-        gotoNextPage={nextPageUrl ? gotoNextPage : null}
-        gotoPrevPage={prevPageUrl ? gotoPrevPage : null}
-      />
-      <PokemonList pokemon={pokemon} />
-      
+      <div>
+        {loading ? <Loading/> : (
+        <>
+        <div class="header">
+          <h1>Pokemon Types</h1>
+          
+            <button onClick={getprevurl}>Prev</button>
+            <button onClick={getnexturl}>Next</button>
+         
+        </div>
+       
+        <div className="grid-container">
+        {pokemonData.map((pokemon, i) => {
+          return <ProductItem key={i} pokemon={pokemon} />
+        })}
+      </div>
+      </>
+        )}
+      </div>
     </>
   );
 }
 
 export default App;
-
